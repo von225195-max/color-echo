@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>色彩回响 · 数字空间的情绪色彩实验</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><radialGradient id='g'><stop offset='0' stop-color='%237fe3ff'/><stop offset='1' stop-color='%230b1020'/></radialGradient></defs><circle cx='16' cy='16' r='13' fill='url(%23g)'/></svg>">
+<link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Noto+Serif+SC:wght@500;700&family=Noto+Sans+SC:wght@400;500&display=swap">
+<style>
+  :root { --accent: hsl(190, 80%, 62%); }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #0b1020; overflow: hidden;
+    font-family: "Noto Sans SC", -apple-system, "PingFang SC", sans-serif;
+  }
+  canvas { display: block; }
+
+  /* 左上：作品标识 */
+  .badge {
+    position: fixed; left: 26px; top: 22px; z-index: 5;
+    color: rgba(226, 232, 248, .82); user-select: none; pointer-events: none;
+  }
+  .badge .zh { font-size: 15px; font-weight: 500; letter-spacing: .28em; }
+  .badge .en { margin-top: 5px; font-size: 10px; letter-spacing: .3em; color: rgba(150,160,190,.55); }
+
+  /* 右上：操作提示 */
+  .hint {
+    position: fixed; right: 26px; top: 24px; z-index: 5;
+    font-size: 11px; letter-spacing: .14em; line-height: 1.9;
+    color: rgba(180, 188, 214, .5); text-align: right; user-select: none; pointer-events: none;
+  }
+
+  /* 左下：情绪展签 */
+  .plaque {
+    position: fixed; left: 26px; bottom: 26px; z-index: 5; user-select: none;
+  }
+  .plaque .mood-en {
+    font-size: 10px; letter-spacing: .34em; text-transform: uppercase;
+    color: rgba(150,160,190,.6); margin-bottom: 6px;
+  }
+  .plaque .mood-name {
+    font-family: "Noto Serif SC", "Songti SC", serif;
+    font-size: 40px; font-weight: 700; line-height: 1;
+    color: #eef2ff; letter-spacing: .12em;
+    transition: color .6s ease;
+  }
+  .dots { display: flex; gap: 10px; margin-top: 16px; }
+  .dots button {
+    width: 9px; height: 9px; padding: 0; border: 0; border-radius: 50%;
+    background: rgba(255,255,255,.18); cursor: pointer; transition: all .35s ease;
+  }
+  .dots button.on { background: var(--accent); transform: scale(1.5); box-shadow: 0 0 10px var(--accent); }
+
+  /* 右下：参数控制台 */
+  .panel {
+    position: fixed; right: 26px; bottom: 26px; z-index: 6;
+    width: 228px; padding: 16px 18px 13px;
+    background: rgba(13, 18, 36, .86);
+    border: 1px solid rgba(255,255,255,.09); border-radius: 10px;
+    color: #c8cfe2; font-size: 12px;
+  }
+  .panel h3 {
+    margin: 0 0 13px; font-size: 10px; font-weight: 500;
+    letter-spacing: .3em; color: rgba(150,160,190,.65);
+  }
+  .row { margin-bottom: 13px; }
+  .row:last-of-type { margin-bottom: 4px; }
+  .row .lab { display: flex; justify-content: space-between; margin-bottom: 6px; letter-spacing: .08em; }
+  .row .val { color: #fff; font-variant-numeric: tnum; font-size: 11px; }
+  input[type=range] {
+    width: 100%; height: 18px; margin: 0; appearance: none; -webkit-appearance: none;
+    background: transparent; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 2px; border-radius: 1px; background: rgba(255,255,255,.16);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 12px; height: 12px; margin-top: -5px;
+    border-radius: 50%; background: var(--accent); border: 0;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  @media (max-width: 640px) {
+    .badge { left: 16px; top: 15px; }
+    .badge .zh { font-size: 13px; }
+    .hint { display: none; }
+    .plaque { left: 16px; bottom: 138px; }
+    .plaque .mood-name { font-size: 30px; }
+    .panel {
+      left: 12px; right: 12px; bottom: 12px; width: auto;
+      display: flex; flex-wrap: wrap; column-gap: 18px;
+      padding: 12px 16px;
+    }
+    .panel h3 { width: 100%; margin-bottom: 8px; }
+    .panel .row { flex: 1; min-width: 90px; margin-bottom: 4px; }
+  }
+</style>
+</head>
+<body>
+  <div class="badge">
+    <div class="zh">色彩回响</div>
+    <div class="en">COLOR ECHO · 情绪色彩实验</div>
+  </div>
+  <div class="hint">点击画面 / 圆点　切换情绪色调<br>移动鼠标　轻轻拨开粒子</div>
+  <div class="plaque">
+    <div class="mood-en" id="moodEn">SERENE</div>
+    <div class="mood-name" id="moodName">宁静</div>
+    <div class="dots" id="dots"></div>
+  </div>
+  <div class="panel">
+    <h3>控制台 · CONTROL</h3>
+    <div class="row">
+      <div class="lab"><span>色相范围</span><span class="val" id="hueVal">35°</span></div>
+      <input type="range" id="hueRange" min="5" max="90" value="35" aria-label="色相范围">
+    </div>
+    <div class="row">
+      <div class="lab"><span>粒子数量</span><span class="val" id="countVal">150</span></div>
+      <input type="range" id="countRange" min="20" max="400" value="150" aria-label="粒子数量">
+    </div>
+    <div class="row">
+      <div class="lab"><span>透明度</span><span class="val" id="alphaVal">72%</span></div>
+      <input type="range" id="alphaRange" min="5" max="100" value="72" aria-label="透明度">
+    </div>
+  </div>
+
+<script src="assets/p5.min.js"></script>
+<script>
+// =====《色彩回响》终版：情绪色板 + Perlin 流场 + 加法混色 + 平滑变色 =====
+const MOODS = [
+  { name: '宁静', en: 'SERENE',     hue: 190, sat: 52, bri: 92, css: 'hsl(190,80%,62%)' },
+  { name: '热烈', en: 'ARDENT',     hue: 15,  sat: 82, bri: 100, css: 'hsl(15,90%,62%)' },
+  { name: '忧郁', en: 'MELANCHOLY', hue: 245, sat: 58, bri: 82, css: 'hsl(245,70%,68%)' },
+  { name: '明快', en: 'VIVID',      hue: 85,  sat: 68, bri: 100, css: 'hsl(85,75%,60%)' }
+];
+const params = { hueSpan: 35, count: 150, alpha: 72 };
+const MAX_SPEED = 1.35, MOUSE_R = 150;
+
+let particles = [], glow, moodIndex = 0, mouseActive = false;
+const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// 沿色相环最短方向插值，避免从红到青绕远路闪变
+function lerpHue(a, b, t) {
+  let d = b - a;
+  if (d > 180) d -= 360;
+  if (d < -180) d += 360;
+  return (a + d * t + 360) % 360;
+}
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  colorMode(HSB, 360, 100, 100, 100);
+  glow = makeGlowSprite();          // 预渲染柔光光斑，运行时只做贴图，省性能
+  imageMode(CENTER);
+  for (let i = 0; i < params.count; i++) particles.push(makeParticle(true));
+  bindUI();
+  const qm = parseInt(new URLSearchParams(location.search).get('mood'), 10);
+  applyMood(Number.isFinite(qm) && MOODS[qm] ? qm : 0, true); // 允许 ?mood=1 指定初始情绪
+  if (reduced) noLoop();
+}
+
+// 径向渐变的白色光斑，配合 tint 上色 + ADD 混合得到柔和辉光
+function makeGlowSprite() {
+  const s = 64, g = createGraphics(s, s);
+  g.noStroke();
+  for (let r = s / 2; r > 0; r -= 0.5) {
+    const t = r / (s / 2);
+    g.fill(255, 255 * Math.pow(1 - t, 2.2));
+    g.ellipse(s / 2, s / 2, r * 2, r * 2);
+  }
+  return g;
+}
+
+function randHue() {
+  const m = MOODS[moodIndex];
+  return (m.hue + random(-params.hueSpan, params.hueSpan) + 360) % 360;
+}
+
+function makeParticle(init) {
+  const m = MOODS[moodIndex];
+  return {
+    x: random(width), y: random(height),
+    vx: random(-0.4, 0.4), vy: random(-0.4, 0.4),
+    r: random(5, 11), ph: random(TWO_PI), aMul: random(0.65, 1),
+    h: randHue(), s: m.sat, b: m.bri,
+    th: randHue(), ts: m.sat, tb: m.bri
+  };
+}
+
+function applyMood(idx, instant) {
+  moodIndex = idx;
+  const m = MOODS[idx];
+  for (let p of particles) {
+    p.th = randHue(); p.ts = m.sat; p.tb = m.bri;
+    if (instant) { p.h = p.th; p.s = p.ts; p.b = p.tb; } // 初始/拖参数：直接落色；点击切换才平滑过渡
+  }
+  document.getElementById('moodName').textContent = m.name;
+  document.getElementById('moodEn').textContent = m.en;
+  document.documentElement.style.setProperty('--accent', m.css);
+  document.querySelectorAll('.dots button').forEach((btn, i) =>
+    btn.classList.toggle('on', i === idx));
+}
+
+function bindUI() {
+  const on = (id, valId, suffix, fn) =>
+    document.getElementById(id).addEventListener('input', e => {
+      const v = +e.target.value; fn(v);
+      document.getElementById(valId).textContent = v + suffix;
+    });
+  on('hueRange', 'hueVal', '°', v => { params.hueSpan = v; applyMood(moodIndex, true); });
+  on('countRange', 'countVal', '', v => {
+    params.count = v;
+    while (particles.length < v) particles.push(makeParticle(false));
+    if (particles.length > v) particles.length = v;
+  });
+  on('alphaRange', 'alphaVal', '%', v => params.alpha = v);
+
+  const dots = document.getElementById('dots');
+  MOODS.forEach((m, i) => {
+    const b = document.createElement('button');
+    b.setAttribute('aria-label', m.name);
+    b.addEventListener('click', e => { e.stopPropagation(); applyMood(i); });
+    dots.appendChild(b);
+  });
+}
+
+function mousePressed() {
+  // 点到 UI 面板不切换情绪
+  if (document.querySelector('.panel').matches(':hover')) return;
+  if (document.querySelector('.plaque').matches(':hover')) return;
+  applyMood((moodIndex + 1) % MOODS.length);
+}
+
+function draw() {
+  // 半透明覆盖制造短拖尾，让色彩“回响”
+  if (frameCount === 1) background(228, 55, 8);
+  else { noStroke(); fill(228, 55, 8, reduced ? 100 : 16); rect(0, 0, width, height); }
+
+  blendMode(ADD);
+  const t = frameCount * 0.0012;
+  for (let p of particles) {
+    // Perlin 噪声流场：方向随空间与时间缓慢变化，运动更有机
+    const ang = noise(p.x * 0.0016, p.y * 0.0016, t) * TWO_PI * 2.2;
+    p.vx += cos(ang) * 0.045; p.vy += sin(ang) * 0.045;
+    // 鼠标靠近时轻轻拨开
+    const dx = p.x - mouseX, dy = p.y - mouseY, d = Math.hypot(dx, dy);
+    if (mouseActive && d < MOUSE_R && d > 0.01) {
+      const f = (1 - d / MOUSE_R) * 0.55;
+      p.vx += dx / d * f; p.vy += dy / d * f;
+    }
+    const sp = Math.hypot(p.vx, p.vy);
+    if (sp > MAX_SPEED) { p.vx = p.vx / sp * MAX_SPEED; p.vy = p.vy / sp * MAX_SPEED; }
+    p.x += p.vx; p.y += p.vy;
+    if (p.x < -20) p.x = width + 20; if (p.x > width + 20) p.x = -20;
+    if (p.y < -20) p.y = height + 20; if (p.y > height + 20) p.y = -20;
+
+    // 颜色向当前情绪目标色平滑收敛（点击切换约 1 秒过渡）
+    p.h = lerpHue(p.h, p.th, 0.06);
+    p.s += (p.ts - p.s) * 0.06;
+    p.b += (p.tb - p.b) * 0.06;
+
+    const breathe = 1 + 0.18 * Math.sin(frameCount * 0.02 + p.ph);
+    const size = p.r * 2 * breathe;
+    tint(color(p.h, p.s, p.b, params.alpha * p.aMul));
+    image(glow, p.x, p.y, size * 2.1, size * 2.1);
+  }
+  blendMode(BLEND);
+  noTint();
+}
+
+function mouseMoved() { mouseActive = true; }
+function touchStarted() { mouseActive = true; }
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}
+</script>
+</body>
+</html>
